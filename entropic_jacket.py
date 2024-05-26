@@ -15,6 +15,10 @@ n_hydrogen = 2.0
 n_oxygen = 6.5  # Stoichiometric amount for methanol combustion
 n_nitrogen = 3.76 * n_oxygen  # Approximate air composition
 
+# Turbine Efficiency and Power Generation
+turbine_efficiency = 0.4  # Typical efficiency
+megawatt_conversion = 1000 * 1000  # MW to W conversion
+
 # Stoichiometric Coefficients
 methanol_combustion_coefficients = {
     'CH3OH': 1,
@@ -79,6 +83,24 @@ def combustion_stroke(compressed_temperature, compressed_volume, n_methanol, n_h
     combustion_pressure = calc_pressure(combustion_temperature, compressed_volume, n_total)
     return combustion_temperature, combustion_pressure
 
+def energy_generation(combustion_energy_released, turbine_efficiency):
+    # Energy output from the turbine (in Joules)
+    energy_output = combustion_energy_released * turbine_efficiency
+    energy_mw = energy_output / megawatt_conversion  # Convert to MW
+    return energy_output, energy_mw
+
+def perform_methanation(n_hydrogen, co2_captured):
+    # Simplified methanation reaction: CO2 + 4H2 -> CH4 + 2H2O
+    n_methane_produced = min(n_hydrogen / 4, co2_captured)
+    return n_methane_produced
+
+def perform_electrolysis(energy_output):
+    # Electrolysis efficiency (simplified)
+    electrolysis_efficiency = 0.7
+    energy_used_for_electrolysis = energy_output * electrolysis_efficiency
+    mol_of_h2_produced = energy_used_for_electrolysis / (237.13 * 1000)  # 237.13 kJ/mol for H2
+    return mol_of_h2_produced
+
 def main():
     # Example PID usage within the loop
     pid = PIDController(kp=1.0, ki=0.1, kd=0.05)
@@ -89,7 +111,8 @@ def main():
     with open('simulation_results.csv', mode='w') as file:
         writer = csv.writer(file)
         writer.writerow(['Cycle', 'Compression Temperature (K)', 'Compression Pressure (kPa)',
-                         'Combustion Temperature (K)', 'Combustion Pressure (kPa)', 'Adjusted Hydrogen Injection'])
+                         'Combustion Temperature (K)', 'Combustion Pressure (kPa)', 'Adjusted Hydrogen Injection',
+                         'Energy Output (J)', 'Energy Output (MW)', 'Methane Produced (mol)', 'Hydrogen Produced (mol)'])
 
         for cycle in range(10):
             compressed_volume, compressed_temperature, compressed_pressure = compression_stroke(
@@ -105,14 +128,23 @@ def main():
                 compressed_temperature, compressed_volume, n_methanol, adjusted_hydrogen_injection, n_oxygen, n_nitrogen
             )
 
+            total_energy_released = calc_combustion_energy(n_methanol, adjusted_hydrogen_injection)
+            energy_output, energy_mw = energy_generation(total_energy_released, turbine_efficiency)
+            co2_captured = n_methanol  # Simplified: 1 mol CH3OH -> 1 mol CO2
+            methane_produced = perform_methanation(adjusted_hydrogen_injection, co2_captured)
+            hydrogen_produced = perform_electrolysis(energy_output)
+
             # Print and log the data
             print(f"Cycle {cycle + 1}:")
             print(f"  Compression - Temperature: {compressed_temperature:.2f} K, Pressure: {compressed_pressure / 1000:.2f} kPa")
             print(f"  Combustion - Temperature: {combustion_temperature:.2f} K, Pressure: {combustion_pressure / 1000:.2f} kPa")
-            print(f"  Adjusted Hydrogen Injection: {adjusted_hydrogen_injection:.2f} mol\n")
+            print(f"  Adjusted Hydrogen Injection: {adjusted_hydrogen_injection:.2f} mol")
+            print(f"  Energy Output: {energy_output:.2f} J ({energy_mw:.3f} MW)")
+            print(f"  Methane Produced: {methane_produced:.2f} mol, Hydrogen Produced: {hydrogen_produced:.2f} mol\n")
 
             writer.writerow([cycle + 1, compressed_temperature, compressed_pressure / 1000,
-                            combustion_temperature, combustion_pressure / 1000, adjusted_hydrogen_injection])
+                            combustion_temperature, combustion_pressure / 1000, adjusted_hydrogen_injection,
+                            energy_output, energy_mw, methane_produced, hydrogen_produced])
 
 if __name__ == "__main__":
     main()
