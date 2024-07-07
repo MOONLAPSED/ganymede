@@ -1,2 +1,0 @@
-# ganymede
-game and drone
