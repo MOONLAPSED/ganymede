@@ -1,6 +1,7 @@
 *.scratch
 /scratch/*
 /ekranoplan/*
+/kb/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
